@@ -1,0 +1,22 @@
+# 自定义属性
+myprops:
+  #签名 sign 校验开关 true 打开校验  fasle 关闭校验  只校验【post】请求
+  checkSignOpen: true
+  #token 校验开关 true 打开校验  fasle 关闭校验  只校验【post】请求
+  checkTokenOpen: true
+  #跳过验证签名 url
+  skipSignUrls:
+    - /v1/goods/callTraffics/heying/callback
+    - /v1/order/confirmAliPayWx
+  #内网跨域设置,将内网全部设置为允许跨域,是否是开发环境
+  isDevEnv: false
+  #允许跨域的域名 手Q和微信域名(同一个),管理后台域名
+  allowOriginUrls:
+    - http://wx.dafysz.cn
+    - https://wx.dafysz.cn
+    - http://dafyshop.dafycredit.cn
+    - https://dafyshop.dafycredit.cn
+  #跳过验证token url
+  skipTokenUrls:
+    - /v1/personCenter/token/applyToken
+    - /v1/goods/callTraffics/heying/callback
