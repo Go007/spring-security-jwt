@@ -71,7 +71,7 @@ public class OauthService {
      *  }
      * </pre>
      */
-    public Result<String> applyToken(@RequestBody Map<String, String> params) {// token暂时未做缓存策略
+    public Result<String> applyToken(@RequestBody Map<String, String> params) {
         Result<String> result = new Result<>();
         try {
             String deviceId = params.get(Constants.PARAM_USER_DEVICEID);
@@ -82,7 +82,6 @@ public class OauthService {
              */
             String oauths;
             String loginStatusKey = Constants.REDIS_KEY_USER_LOGIN_STATUS + deviceId;
-
             JSONObject cacheUserJson = JSON.parseObject(redisService.getStr(loginStatusKey)); //获取登录态
             if (cacheUserJson == null) {
                 oauths = TokenType.GUEST.typeName();
@@ -103,7 +102,7 @@ public class OauthService {
     }
 
     private UserToken setUserTokenInfo(JSONObject cacheUser, String deviceId, String ipAddress, String platform) {
-        String userName = StringUtils.EMPTY;
+        String userName = null;
         long userId = 0;
         int tokenType;
         long currTime = 123456789L;  //DateUtil.getCurrMiliseconds();
@@ -149,7 +148,7 @@ public class OauthService {
      */
     private String cacheUserToken(UserToken userToken, String oauths, String platform) {
         String cacheValue = String.format("%s" + splitKey + "%s" + splitKey + "%s" + splitKey + "%s",
-                userToken.getAccessToken(), userToken.getUserName(), userToken.getDeviceId(), oauths);// token缓存的格式:token-用户名-设备id-权限or角色
+                userToken.getAccessToken(), userToken.getUserName(), userToken.getDeviceId(), oauths);// token缓存的格式:token||用户名||设备id||权限or角色
         //1、移除该设备id之前申请的token
         String currDeviceIdTokenKey = Constants.REDIS_KEY_USER_LOGIN_DEVICEID_TOKEN + userToken.getDeviceId();
         String currDeviceIdToken = redisService.getStr(currDeviceIdTokenKey);//最后设备下发的token

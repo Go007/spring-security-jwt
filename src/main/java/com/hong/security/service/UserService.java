@@ -128,11 +128,8 @@ public class UserService {
                 }
             }*/
 
-            String lastLoginDeviceId = getLastLoginDeviceId(userName);
-            if (StringUtils.isNotBlank(lastLoginDeviceId) && !lastLoginDeviceId.equals(deviceId)) {//在其他设备登录过
-                // 移除之前登录设备信息
-                removeLastDeviceLoginInfo(deviceId, userName);
-            }
+            removeLastDeviceLoginInfo(deviceId, userName);
+
             cacheLastLoginDeviceId(userName, deviceId);//记录最后登录设备
             // 登录成功--设置登录态(缓存7天)EXPIRE_USER_LOGIN_STATUS_DAY
             cacheUserLoginStatus(deviceId, queryUser);
@@ -160,7 +157,6 @@ public class UserService {
                 queryUser.setToken(applyToken);
                 log.info("用户名:[{}],设备号:[{}],申请的token:[{}]", userName, deviceId, tokenResult.getData());
             }
-
 
             return new Result(queryUser);
         } catch (Exception e) {
@@ -209,8 +205,6 @@ public class UserService {
             log.info("用户:[{}],已切换登录设备:[{}],之前登录设备:[{}],登录态和该设备下登录token:[{}]被移除", userName, currDeviceId, lastLoginDeviceId, lastLoginDeviceIdToken);
             cacheLastKickDeviceId(lastLoginDeviceId);//记录最后那一台被踢出设备
         }
-//        cacheLastLoginDeviceId(userName, currDeviceId);//记录最后登录设备
-//        removeLastKickDeviceId(currDeviceId);//移除当前登录设备的踢出状态
     }
 
     /**

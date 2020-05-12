@@ -14,8 +14,8 @@ import java.util.Date;
 public class TokenUtil {
 
     public static String createToken(String userName, String deviceId) {
-        String tokenparam = String.format("%s.%s.%s.%s", String.valueOf(System.currentTimeMillis()), Constants.SECRET_KEY, userName, deviceId);
-        String token = DigestUtils.md5Hex(tokenparam);
+        String token = String.format("%s.%s.%s.%s", String.valueOf(System.currentTimeMillis()), Constants.SECRET_KEY, userName, deviceId);
+        token = DigestUtils.md5Hex(token);
         return token;
     }
 

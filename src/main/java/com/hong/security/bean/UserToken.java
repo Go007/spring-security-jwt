@@ -2,7 +2,7 @@ package com.hong.security.bean;
 
 import java.io.Serializable;
 
-public class UserToken implements Serializable{
+public class UserToken implements Serializable {
 
     private static final long serialVersionUID = -567854478280146507L;
 
