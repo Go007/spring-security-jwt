@@ -6,18 +6,27 @@ import com.hong.security.common.Result;
 import com.hong.security.common.WrappedRequest;
 import com.hong.security.config.PropsConfig;
 import com.hong.security.service.OauthService;
+import com.hong.security.service.UserService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.AuthorityUtils;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import javax.servlet.FilterChain;
+import javax.servlet.ServletException;
 import javax.servlet.ServletRequest;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.BufferedReader;
+import java.io.IOException;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,8 +44,11 @@ public class JwtAuthenticationTokenFilter extends OncePerRequestFilter {
     @Autowired
     private OauthService oauthService;
 
+    @Autowired
+    private UserService userService;
+
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) {
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws IOException, ServletException {
         System.out.println("JwtAuthenticationTokenFilter Begin");
         setAllowOrigin(request, response);
 
@@ -102,8 +114,45 @@ public class JwtAuthenticationTokenFilter extends OncePerRequestFilter {
                 Map<String, String> tokenParamMap = new HashMap<>();
                 tokenParamMap.put(Constants.PARAM_USER_ACCESS_TOKEN, clientToken);
                 Result<Map<String, String>> tokenResult = oauthService.validateToken(tokenParamMap);
+                if (Result.CODE_FAILURE == tokenResult.getCode() || tokenResult.getData() == null) {
+                    // 判断token失效是否是切换登录设备导致的
+                    if (!requestUrl.equals("/login")) {// 登录时候不提示
+                        Map<String, String> deviceIdParamMap = new HashMap<>();
+                        deviceIdParamMap.put(Constants.PARAM_USER_DEVICEID, deviceId);
+                        Result<Boolean> kickedResult = userService.deviceIdKicked(deviceIdParamMap);
+                        if (kickedResult.getData() != null && kickedResult.getData()) {// 判断当前登录设备是否被踢出被踢出,判断token过期是被踢出登录导致的
+                            accessDenied(response, "500135", "该账号在其他设备登录,请重新登录");
+                            return;
+                        }
+                    }
+                    accessDenied(response, "000401", "token已过期");
+                    return;
+                }
 
+                Map<String, String> map = tokenResult.getData();
+                userName = map.get(Constants.LOGIN_NAME);
+                roles = map.get(Constants.AUTHORITIES);
             }
+        } else {
+            // 不校验默认给USER权限
+            userName = "USER";
+            roles = "USER";
+        }
+
+        // 3、token存在校验权限
+        if (isPost && !propsConfig.skipTokenUrls.contains(requestUrl)) {
+            if (userName != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                Object principal = userName;
+                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(principal, null, getAuthorities(roles));
+                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+            }
+        }
+
+        if (requestWrapper == null) {
+            filterChain.doFilter(request, response);
+        } else {
+            filterChain.doFilter(requestWrapper, response);
         }
 
     }
@@ -169,4 +218,28 @@ public class JwtAuthenticationTokenFilter extends OncePerRequestFilter {
             logger.info("accessDenied方法异常:[{}]", e);
         }
     }
+
+    /**
+     * 设置spring-security权限
+     *
+     * @param roles
+     * @return
+     */
+    public Collection<? extends GrantedAuthority> getAuthorities(String roles) {
+        if (StringUtils.isBlank(roles)) {
+            return AuthorityUtils.commaSeparatedStringToAuthorityList("");
+        }
+        StringBuilder commaBuilder = new StringBuilder();
+        if (StringUtils.contains(roles, ",")) {
+            String[] rolesArr = roles.split(",");
+            for (String role : rolesArr) {
+                commaBuilder.append(role);
+            }
+        } else {
+            commaBuilder.append(roles);
+        }
+        String authorities = StringUtils.removeEnd(commaBuilder.toString(), ",");
+        return AuthorityUtils.commaSeparatedStringToAuthorityList(authorities);
+    }
+
 }

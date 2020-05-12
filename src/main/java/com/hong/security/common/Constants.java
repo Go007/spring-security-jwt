@@ -142,4 +142,13 @@ public class Constants {
 
     /** 值：用户缓存登录态过期时间为7天，单位：秒 **/
     public static final int EXPIRE_USER_LOGIN_STATUS_DAY = 60*60*24*7;//24*60*60
+
+
+    /** 键：sys模块前缀 **/
+    public static final String SYS_KEY_PREFIX = "sys.";
+
+    /**
+     * 被踢出的设备
+     * */
+    public static final String REDIS_KEY_USER_LAST_KICK_DEVICE = SYS_KEY_PREFIX+"userLastKickDeviceId.";
 }
