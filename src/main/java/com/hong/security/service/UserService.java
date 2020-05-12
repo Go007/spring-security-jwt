@@ -5,6 +5,7 @@ import com.hong.security.bean.User;
 import com.hong.security.common.Constants;
 import com.hong.security.common.Result;
 import com.hong.security.common.ResultCode;
+import com.hong.security.common.RoleType;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -62,8 +63,11 @@ public class UserService {
             String ip = params.get(Constants.PARAM_IP);
             String pushId = params.get(Constants.PARAM_PUSHID);
 
-            // User queryUser = queryUserInfo(userName);
-            User queryUser = new User();
+            User queryUser = queryUserInfo(userName);
+            queryUser.setLoginName(userName);
+            queryUser.setId(110L);
+            queryUser.setRoles(RoleType.ROLE_USER.roleName());
+
             if (queryUser == null) {
                 return new Result(ResultCode.SYS_USER_NOTEXIST.getCode(), ResultCode.SYS_USER_NOTEXIST.getMsg());
             }
@@ -122,7 +126,7 @@ public class UserService {
                 } catch (Exception e) {
                     log.error("插入推送设备表异常[{}]", pushParam, e);
                 }
-            }
+            }*/
 
             String lastLoginDeviceId = getLastLoginDeviceId(userName);
             if (StringUtils.isNotBlank(lastLoginDeviceId) && !lastLoginDeviceId.equals(deviceId)) {//在其他设备登录过
@@ -133,7 +137,7 @@ public class UserService {
             // 登录成功--设置登录态(缓存7天)EXPIRE_USER_LOGIN_STATUS_DAY
             cacheUserLoginStatus(deviceId, queryUser);
             //移除当前登录设备的踢出状态
-            removeLastKickDeviceId(deviceId);*/
+            removeLastKickDeviceId(deviceId);
 
 
             // 登录成功下发token
@@ -229,7 +233,7 @@ public class UserService {
      * 缓存用户设备登录态
      */
     private void cacheUserLoginStatus(String deviceId, User queryUser) {
-        redisService.set(Constants.REDIS_KEY_USER_LOGIN_STATUS + deviceId, JSON.toJSON(queryUser), Constants.EXPIRE_USER_LOGIN_STATUS_DAY);
+        redisService.set(Constants.REDIS_KEY_USER_LOGIN_STATUS + deviceId, JSON.toJSONString(queryUser), Constants.EXPIRE_USER_LOGIN_STATUS_DAY);
     }
 
     /**
@@ -240,4 +244,20 @@ public class UserService {
         redisService.del(lastKickDeviceId);
     }
 
+    private User queryUserInfo(String userName) {
+        // 先查询缓存--缓存没有从数据库查询
+        String cacheKey = generateCacheUserKey(userName);
+        User queryUser = redisService.get(cacheKey, User.class);
+        if (queryUser == null) {
+            queryUser = new User();//userMapper.selectByEnableUserName(userName);
+        }
+        return queryUser;
+    }
+
+    /**
+     * 生成缓存key:用户名称或者手机号码
+     */
+    private String generateCacheUserKey(String userName) {
+        return Constants.REDIS_KEY_USER + userName;
+    }
 }

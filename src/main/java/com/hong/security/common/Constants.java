@@ -526,4 +526,15 @@ public class Constants {
      * 用户最后登录的设备key
      */
     public static final String REDIS_KEY_USER_LAST_LOGIN_DEVICE = KEY_PREFIX+"userLastLoginDeviceId.";
+
+    /**
+     * 用户缓存key
+     */
+    public static final String REDIS_KEY_USER = KEY_PREFIX+"userReister.";
+
+    public static final String REDIS_KEY_USER_VALIDATE_CODE = KEY_PREFIX+"checkUserInfo.";
+
+    public static final String REDIS_KEY_USER_QUERY_CODE = KEY_PREFIX+"queryUserExist.";
+
+    public static final String REDIS_KEY_USER_FIND_PWD = KEY_PREFIX+"findUserPwd.";
 }

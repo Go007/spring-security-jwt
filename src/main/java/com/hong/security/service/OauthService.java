@@ -1,5 +1,6 @@
 package com.hong.security.service;
 
+import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.hong.security.bean.UserToken;
 import com.hong.security.common.*;
@@ -76,15 +77,18 @@ public class OauthService {
             String deviceId = params.get(Constants.PARAM_USER_DEVICEID);
             String ipAddress = params.get(Constants.PARAM_IP);
             String platform = params.get(Constants.PARAM_PLATFORM);
-            // 1、获取登录态,有登录态:登录的用户,无登录态:访客
+            /**
+             * 获取登录态,有登录态:登录的用户,无登录态:访客
+             */
             String oauths;
             String loginStatusKey = Constants.REDIS_KEY_USER_LOGIN_STATUS + deviceId;
-            JSONObject cacheUserJson = redisService.get(loginStatusKey, JSONObject.class);//获取登录态
+
+            JSONObject cacheUserJson = JSON.parseObject(redisService.getStr(loginStatusKey)); //获取登录态
             if (cacheUserJson == null) {
                 oauths = TokenType.GUEST.typeName();
             } else {
                 oauths = cacheUserJson.getString(Constants.PARAM_USER_ROLES);
-                redisService.set(loginStatusKey, cacheUserJson, Constants.EXPIRE_USER_LOGIN_STATUS_DAY);//延长设备登录态token时间
+                redisService.set(loginStatusKey, JSON.toJSONString(cacheUserJson), Constants.EXPIRE_USER_LOGIN_STATUS_DAY);//延长设备登录态token时间
             }
             // 2、 生成用户token
             UserToken userToken = setUserTokenInfo(cacheUserJson, deviceId, ipAddress, platform);
@@ -98,30 +102,30 @@ public class OauthService {
         return result;
     }
 
-    private UserToken setUserTokenInfo(JSONObject cacheUser,String deviceId,String ipAddress,String platform) {
-        String userName=StringUtils.EMPTY;
-        long userId=0;
+    private UserToken setUserTokenInfo(JSONObject cacheUser, String deviceId, String ipAddress, String platform) {
+        String userName = StringUtils.EMPTY;
+        long userId = 0;
         int tokenType;
         long currTime = 123456789L;  //DateUtil.getCurrMiliseconds();
-        long expiressTime= 123456789L; //DateUtil.getBeforeMin(2*60, new Date()).getTime();//过期时间2小时
+        long expiressTime = 1234567845656759L; //DateUtil.getBeforeMin(2*60, new Date()).getTime();//过期时间2小时
         UserToken userToken = new UserToken();
         // 有这个用户才给分配token--存缓存
-        if(cacheUser!=null){//分配用户token
-            userName=cacheUser.getString("loginName");
-            if(StringUtils.isBlank(userName)) {
-                userName=cacheUser.getString("wxMallLoginName");
+        if (cacheUser != null) {//分配用户token
+            userName = cacheUser.getString("loginName");
+            if (StringUtils.isBlank(userName)) {
+                userName = cacheUser.getString("wxMallLoginName");
             }
-            userId=cacheUser.getLong("id");
-            tokenType=TokenType.USER.type();
-        }else{
-            userName=TokenType.GUEST.typeName();
-            tokenType=TokenType.GUEST.type();
+            userId = cacheUser.getLong("id");
+            tokenType = TokenType.USER.type();
+        } else {
+            userName = TokenType.GUEST.typeName();
+            tokenType = TokenType.GUEST.type();
         }
-        String accessToken = TokenUtil.createToken(userName,deviceId);
+        String accessToken = TokenUtil.createToken(userName, deviceId);
         String refreshToken = StringUtils.EMPTY;
         userToken.setUserId(userId);
-        if(StringUtils.isBlank(userName)) {
-            userName=TokenType.USER.typeName();
+        if (StringUtils.isBlank(userName)) {
+            userName = TokenType.USER.typeName();
         }
         userToken.setUserName(userName);
         userToken.setAccessToken(accessToken);
@@ -131,30 +135,29 @@ public class OauthService {
         userToken.setType(tokenType);
         userToken.setCreateTime(currTime);
         userToken.setExpiresTime(expiressTime);//用户token默认缓存两个小时
-        if(StringUtils.isNotBlank(ipAddress)) {
+        if (StringUtils.isNotBlank(ipAddress)) {
             userToken.setIpAddress(ipAddress);
         }
-        if(StringUtils.isNotBlank(platform)) {
+        if (StringUtils.isNotBlank(platform)) {
             userToken.setPlatform(platform);
         }
         return userToken;
     }
 
     /**
-     *
      * 缓存用户 or 访客token,2小时
-     * */
-    private String cacheUserToken(UserToken userToken, String oauths,String platform) {
+     */
+    private String cacheUserToken(UserToken userToken, String oauths, String platform) {
         String cacheValue = String.format("%s" + splitKey + "%s" + splitKey + "%s" + splitKey + "%s",
                 userToken.getAccessToken(), userToken.getUserName(), userToken.getDeviceId(), oauths);// token缓存的格式:token-用户名-设备id-权限or角色
         //1、移除该设备id之前申请的token
-        String currDeviceIdTokenKey=Constants.REDIS_KEY_USER_LOGIN_DEVICEID_TOKEN+userToken.getDeviceId();
-        String currDeviceIdToken=redisService.getStr(currDeviceIdTokenKey);//最后设备下发的token
-        if(StringUtils.isNotBlank(currDeviceIdToken) && !StringUtils.equals(platform, PlatformType.WECHATMALL.desc())) {// 微信302多次重定向,token会被覆盖,导致失效,故加这个判断
+        String currDeviceIdTokenKey = Constants.REDIS_KEY_USER_LOGIN_DEVICEID_TOKEN + userToken.getDeviceId();
+        String currDeviceIdToken = redisService.getStr(currDeviceIdTokenKey);//最后设备下发的token
+        if (StringUtils.isNotBlank(currDeviceIdToken) && !StringUtils.equals(platform, PlatformType.WECHATMALL.desc())) {// 微信302多次重定向,token会被覆盖,导致失效,故加这个判断
             redisService.del(currDeviceIdToken);
         }
         //2、缓存用户token
-       // userTokenMapper.insert(userToken);
+        // userTokenMapper.insert(userToken);
         redisService.set(userToken.getAccessToken(), cacheValue, cacheTime);// token存入缓存,时间2小时,放入配置文件中
         //3、记录当前设备下发的token
         redisService.set(currDeviceIdTokenKey, userToken.getAccessToken());

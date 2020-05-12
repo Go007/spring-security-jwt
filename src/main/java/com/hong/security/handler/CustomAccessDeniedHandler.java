@@ -1,7 +1,6 @@
 package com.hong.security.handler;
 
 import com.alibaba.fastjson.JSONObject;
-import com.hong.security.common.Result;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.web.access.AccessDeniedHandler;
@@ -26,12 +25,10 @@ public class CustomAccessDeniedHandler implements AccessDeniedHandler {
         try {
             out = response.getWriter();
 
-            Result<String> result = new Result<>(Result.CODE_FAILURE, Result.MSG_FAILURE, request.getRequestURI());
             JSONObject jsonObject = new JSONObject();
             jsonObject.put("code", "000405");
-            jsonObject.put("message", "您处于访客状态,请登录后再访问");
+            jsonObject.put("msg", "您处于访客状态,请登录后再访问");
             jsonObject.put("data", StringUtils.EMPTY);
-            jsonObject.put("result", result);
 
             out.print(jsonObject);
 
