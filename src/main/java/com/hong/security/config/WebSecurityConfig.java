@@ -16,7 +16,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 /**
  * @author wanghong
  * @date 2020/05/11 21:57
- *  Spring Security 配置
+ * Spring Security 配置
  **/
 @Configuration
 @EnableWebSecurity
@@ -31,16 +31,22 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
                 // 基于token，所以不需要session
                 .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS).and().authorizeRequests()
                 // 允许对于网站静态资源的无授权访问
-                .antMatchers(HttpMethod.GET, "/", "/*.html", "/favicon.ico", "/**/*.html", "/**/*.css", "/**/*.js", "/**/*.png","/info","/**/*.apk").permitAll()
-                // 对于获取token的rest api要允许匿名访问
-                .antMatchers("/v1/user/**").permitAll()
-                .antMatchers("/v1/personCenter/**").permitAll()
-                .antMatchers("/v1/pay/notify").permitAll()
-                .antMatchers("/v1/goods/callTraffics/**").permitAll()
-                .antMatchers("/v1/qq/goods/**").permitAll()
-                .antMatchers("/v1/**").permitAll()
+                .antMatchers(HttpMethod.GET, "/", "/*.html", "/favicon.ico", "/**/*.html", "/**/*.css", "/**/*.js", "/**/*.png", "/info", "/**/*.apk").permitAll()
+                /**
+                 * 对于获取token的rest api要允许匿名访问
+                 * 如果不设置，请求 /user/login 会报如下错误：
+                 *  {
+                 *     "timestamp": "2020-05-12T09:09:23.670+0000",
+                 *     "status": 403,
+                 *     "error": "Forbidden",
+                 *     "message": "Access Denied",
+                 *     "path": "/user/login"
+                 * }
+                 */
+                .antMatchers("/user/login").permitAll()
                 // 除上面外的所有请求全部需要鉴权认证
-                .anyRequest().authenticated();
+                .anyRequest()
+                .authenticated();
 
         //自定义无权限访问错误
         http.exceptionHandling().accessDeniedHandler(accessDeniedHandler());
@@ -54,6 +60,7 @@ public class WebSecurityConfig extends WebSecurityConfigurerAdapter {
     public AccessDeniedHandler accessDeniedHandler() {
         return new CustomAccessDeniedHandler();
     }
+
     @Bean
     public JwtAuthenticationTokenFilter authenticationTokenFilterBean() throws Exception {
         return new JwtAuthenticationTokenFilter();

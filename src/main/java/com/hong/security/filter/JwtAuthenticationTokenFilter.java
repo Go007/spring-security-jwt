@@ -3,6 +3,7 @@ package com.hong.security.filter;
 import com.alibaba.fastjson.JSONObject;
 import com.hong.security.common.Constants;
 import com.hong.security.common.Result;
+import com.hong.security.common.ResultCode;
 import com.hong.security.common.WrappedRequest;
 import com.hong.security.config.PropsConfig;
 import com.hong.security.service.OauthService;
@@ -65,7 +66,9 @@ public class JwtAuthenticationTokenFilter extends OncePerRequestFilter {
                 requestParams = readJSONString(requestWrapper);
                 if (StringUtils.isBlank(sign)) {
                     log.info("签名为空:参数  [{}]" + requestParams);
-                    accessDenied(response, "000403", "签名不能为空");
+                    // TODO 这里 000403 用 Integer 接收时，会被 /000 当成八进制，转换为十进制，传过去的时262
+                    //  accessDenied(response, "000403", "签名不能为空");
+                    accessDenied(response, ResultCode.SIGN_EMPTY);
                     return;
                 }
 
@@ -73,7 +76,7 @@ public class JwtAuthenticationTokenFilter extends OncePerRequestFilter {
                 String checkSign = DigestUtils.md5Hex(requestParams + Constants.SECRET_SIGN_KEY);
                 if (!checkSign.equals(sign)) {// 签名不一致
                     log.info("签名不一致:客户端签名:[{}],服务端生成的签名:[{}]", sign, checkSign);
-                    accessDenied(response, "000403", "签名不一致");
+                    accessDenied(response, ResultCode.SIGN_DISAGREE);
                     return;
                 }
             }
@@ -93,18 +96,18 @@ public class JwtAuthenticationTokenFilter extends OncePerRequestFilter {
                 // 校验token格式start
                 String token_prefix = Constants.TOKEN_PREFIX;
                 if (StringUtils.isBlank(authHeader)) {// 判断头部是否带token参数
-                    accessDenied(response, "000406", "头部token缺失");
+                    accessDenied(response, ResultCode.TOKEN_DELETION);
                     return;
                 } else {
                     if (!StringUtils.startsWith(authHeader, token_prefix.trim())) {
-                        accessDenied(response, "000407", "token格式不正确");
+                        accessDenied(response, ResultCode.TOKEN_FORMAT_ERROR);
                         return;
                     }
                 }
 
                 String tokenValue = StringUtils.trim(authHeader.replace(token_prefix.trim(), StringUtils.EMPTY));
                 if (StringUtils.isBlank(tokenValue)) {
-                    accessDenied(response, "000401", "token值不能为空");
+                    accessDenied(response, ResultCode.TOKEN_EMPTY);
                     return;
                 }
                 // 校验token格式end
@@ -121,11 +124,11 @@ public class JwtAuthenticationTokenFilter extends OncePerRequestFilter {
                         deviceIdParamMap.put(Constants.PARAM_USER_DEVICEID, deviceId);
                         Result<Boolean> kickedResult = userService.deviceIdKicked(deviceIdParamMap);
                         if (kickedResult.getData() != null && kickedResult.getData()) {// 判断当前登录设备是否被踢出被踢出,判断token过期是被踢出登录导致的
-                            accessDenied(response, "500135", "该账号在其他设备登录,请重新登录");
+                            accessDenied(response, ResultCode.SYS_USER_LOGIN_OTHER_DEVICE);
                             return;
                         }
                     }
-                    accessDenied(response, "000401", "token已过期");
+                    accessDenied(response, ResultCode.TOKEN_EXPIRED);
                     return;
                 }
 
@@ -199,21 +202,16 @@ public class JwtAuthenticationTokenFilter extends OncePerRequestFilter {
 
     /**
      * 自定义拒绝访问
-     *
-     * @param response
-     * @param code
-     * @param msg
      */
-    public void accessDenied(HttpServletResponse response, String code, String msg) {
+    public void accessDenied(HttpServletResponse response, ResultCode resultCode) {
         try {
             response.setCharacterEncoding("UTF-8");
             response.setContentType("application/json; charset=utf-8");
-            JSONObject jsonObject = new JSONObject();
-            jsonObject.put("code", code);
-            jsonObject.put("message", msg);
-            jsonObject.put("data", StringUtils.EMPTY);
-            jsonObject.put("result", new Result<>(Result.CODE_FAILURE, Result.MSG_FAILURE));
-            response.getWriter().println(jsonObject);
+            JSONObject result = new JSONObject();
+            result.put("code", resultCode.getCode());
+            result.put("msg", resultCode.getMsg());
+            result.put("data", "");
+            response.getWriter().println(result);
         } catch (Exception e) {
             logger.info("accessDenied方法异常:[{}]", e);
         }
