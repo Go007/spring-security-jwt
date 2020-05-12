@@ -1,3 +1,9 @@
+spring:
+  application:
+    name: online-sign
+  profiles:
+    active: dev
+
 # 自定义属性
 myprops:
   #签名 sign 校验开关 true 打开校验  fasle 关闭校验  只校验【post】请求
