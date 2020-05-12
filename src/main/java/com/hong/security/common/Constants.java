@@ -108,7 +108,7 @@ public class Constants {
     public static final String AUTHORITIES = "authorities"; //权限名称
     public static final int EXPIRE_DAY = 30; // 30天
     public static final String TOKEN_PREFIX="Authorization: Bearer ";
-    public static final String TOKEN_HEADER="token";//head中名称
+    public static final String TOKEN_HEADER="token";//header中名称
     public static final String TOKEN_COOKIE="openIdToken";//openId的token,放在cookie里面
     public static final String DEVICE_ID="deviceId";//唯一设备id
     public static final String LOGIN_NAME="userName";//登录名

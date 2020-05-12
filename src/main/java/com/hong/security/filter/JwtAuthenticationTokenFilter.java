@@ -5,6 +5,7 @@ import com.hong.security.common.Constants;
 import com.hong.security.common.Result;
 import com.hong.security.common.WrappedRequest;
 import com.hong.security.config.PropsConfig;
+import com.hong.security.service.OauthService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -13,13 +14,13 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import javax.servlet.FilterChain;
-import javax.servlet.ServletException;
 import javax.servlet.ServletRequest;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.BufferedReader;
-import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * @author wanghong
@@ -31,21 +32,23 @@ public class JwtAuthenticationTokenFilter extends OncePerRequestFilter {
     @Autowired
     private PropsConfig propsConfig;
 
+    @Autowired
+    private OauthService oauthService;
+
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) {
         System.out.println("JwtAuthenticationTokenFilter Begin");
         setAllowOrigin(request, response);
 
         String requestParams = StringUtils.EMPTY;
         String requestUrl = request.getRequestURI();
-        List<String> skipSignUrls = propsConfig.skipSignUrls;
-        List<String> skipTokenUrls = propsConfig.skipTokenUrls;
         boolean isPost = RequestMethod.POST.name().equals(request.getMethod());
         ServletRequest requestWrapper = new WrappedRequest(request);
 
         // 1、验证签名参数--签名校验开关打开,验签所有post方法参数
         if (propsConfig.checkSignOpen && isPost) {
-            if (!skipSignUrls.contains(requestUrl)) {
+            // 请求URL不在跳过验证签名url列表中
+            if (!propsConfig.skipSignUrls.contains(requestUrl)) {
                 String sign = request.getHeader(Constants.PARAM_SIGN);
                 requestParams = readJSONString(requestWrapper);
                 if (StringUtils.isBlank(sign)) {
@@ -54,6 +57,7 @@ public class JwtAuthenticationTokenFilter extends OncePerRequestFilter {
                     return;
                 }
 
+                // 签名：MD5 + 盐
                 String checkSign = DigestUtils.md5Hex(requestParams + Constants.SECRET_SIGN_KEY);
                 if (!checkSign.equals(sign)) {// 签名不一致
                     log.info("签名不一致:客户端签名:[{}],服务端生成的签名:[{}]", sign, checkSign);
@@ -67,6 +71,40 @@ public class JwtAuthenticationTokenFilter extends OncePerRequestFilter {
         log.info("请求url:[{}],method:[{}],params:[{}]", requestUrl, requestMethod, requestParams);
 
         // 2、验证头部token--普通token,带权限token
+        String deviceId = request.getHeader(Constants.PARAM_USER_DEVICEID);
+        String userName = StringUtils.EMPTY;
+        String roles = StringUtils.EMPTY;
+        String authHeader = request.getHeader(Constants.TOKEN_HEADER);//头部的token信息,app有,web无
+        if (propsConfig.checkTokenOpen && isPost) {// token校验开关打开
+            if (!propsConfig.skipTokenUrls.contains(requestUrl)) {// 需要判断token才校验
+                // App 校验token
+                // 校验token格式start
+                String token_prefix = Constants.TOKEN_PREFIX;
+                if (StringUtils.isBlank(authHeader)) {// 判断头部是否带token参数
+                    accessDenied(response, "000406", "头部token缺失");
+                    return;
+                } else {
+                    if (!StringUtils.startsWith(authHeader, token_prefix.trim())) {
+                        accessDenied(response, "000407", "token格式不正确");
+                        return;
+                    }
+                }
+
+                String tokenValue = StringUtils.trim(authHeader.replace(token_prefix.trim(), StringUtils.EMPTY));
+                if (StringUtils.isBlank(tokenValue)) {
+                    accessDenied(response, "000401", "token值不能为空");
+                    return;
+                }
+                // 校验token格式end
+
+                // 校验token是否存在
+                final String clientToken = authHeader.substring(token_prefix.length()); // The part after "Bearer "
+                Map<String, String> tokenParamMap = new HashMap<>();
+                tokenParamMap.put(Constants.PARAM_USER_ACCESS_TOKEN, clientToken);
+                Result<Map<String, String>> tokenResult = oauthService.validateToken(tokenParamMap);
+
+            }
+        }
 
     }
 
