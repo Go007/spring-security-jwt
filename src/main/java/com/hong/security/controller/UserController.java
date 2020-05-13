@@ -70,7 +70,7 @@ public class UserController {
      * @param request
      * @return
      */
-    @RequestMapping(value = "account/register", method = {RequestMethod.POST})
+    @RequestMapping(value = "/register", method = {RequestMethod.POST})
     public Result<?> register(@RequestBody Map<String, String> paramMap, HttpServletRequest request) {
         Result<JSONObject> result = new Result<>();
         try {
@@ -121,6 +121,17 @@ public class UserController {
             return new Result<>(-1, "注册用户失败");
         }
         return result;
+    }
+
+    /**
+     * 用户登出
+     * 设备ID
+     * @param paramMap
+     * @return
+     */
+    @RequestMapping(value = "/logout", method = { RequestMethod.POST })
+    public Result<?> logout(@RequestBody Map<String, String> paramMap) {
+        return userService.userLogout(paramMap);
     }
 
 }

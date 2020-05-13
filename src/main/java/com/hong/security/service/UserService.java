@@ -208,6 +208,19 @@ public class UserService {
         }
     }
 
+    public Result<Boolean> userLogout(Map<String, String> params) {
+        Result<Boolean> result = new Result<>();
+        try {
+            String deviceId = StringUtils.trim(params.get(Constants.PARAM_USER_DEVICEID));
+            //移除登录设备信息
+            redisService.del(Constants.REDIS_KEY_USER_LOGIN_STATUS + deviceId);
+        } catch (Exception e) {
+            log.error("用户退出登录异常[{}]", params, e);
+        }
+        return result;
+    }
+
+
     /**
      * md5移动端传递过来密码
      */
