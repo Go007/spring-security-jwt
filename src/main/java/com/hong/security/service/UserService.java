@@ -8,6 +8,8 @@ import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.interceptor.TransactionAspectSupport;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 
@@ -220,6 +222,55 @@ public class UserService {
         return result;
     }
 
+    /**
+     * 找回密码--重置密码
+     *
+     * @param params
+     * @return
+     */
+    @Transactional
+    public Result<User> restUserPwd(Map<String, String> params) {
+        Result<User> result = new Result<>();
+        try {
+            String mobile = params.get(Constants.PARAM_USER_MOBILE);
+            String userName = params.get(Constants.PARAM_USER_NAME);
+            String randCode = params.get(Constants.PARAM_IDENTIFY_CODE);
+            String newPwd = params.get(Constants.PARAM_USER_NEW_PWD);
+            String cacheRandCode = redisService.getStr(Constants.REDIS_KEY_USER_VALIDATE_CODE + mobile + randCode);
+            if (!StringUtils.equals(randCode, cacheRandCode)) {// code校验通过--修改密码
+                return new Result<>(ResultCode.SYS_REST_PWD_EXPIRE.getCode(), ResultCode.SYS_REST_PWD_EXPIRE.getMsg());
+            }
+//            if (StringUtils.isBlank(userName)) {// 如果登录名为空,说明处于未登录状态,userName赋值
+            userName = mobile;
+//            }
+            User queryUser = queryUserInfo(userName);
+            if (queryUser == null) {
+                return new Result<>(ResultCode.SYS_USER_NOTEXIST.getCode(), ResultCode.SYS_USER_NOTEXIST.getMsg());
+            }
+            //密码不能与之前相同
+            String md5NewPwd = encodePwd(newPwd);
+            if (StringUtils.equals(encodePwd(newPwd), queryUser.getPassword())) {
+                return new Result<>(ResultCode.SYS_REST_PWD_EQUAL.getCode(), ResultCode.SYS_REST_PWD_EQUAL.getMsg());
+            }
+            queryUser.setPassword(md5NewPwd);
+            updateUserInfo(queryUser);
+            result.setData(queryUser);
+        } catch (Exception e) {
+            log.error("用户找回登录密码--重置用户密码异常[{}]", params, e);
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+            return new Result<>(ResultCode.SYS_REST_PWD.getCode(), ResultCode.SYS_REST_PWD.getMsg());
+        }
+        return result;
+    }
+
+    private void updateUserInfo(User user) {
+        user.setUpdateTime(System.currentTimeMillis());//设置更改时间
+        int effectNum = 1;// userMapper.updateByPrimaryKey(user);
+        if (effectNum > 0) {
+            String cacheKey = generateCacheUserKey(user.getLoginName());
+            redisService.set(cacheKey, user, Constants.EXPIRE_USER_DAY);
+        }
+    }
 
     /**
      * md5移动端传递过来密码

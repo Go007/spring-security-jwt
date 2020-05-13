@@ -126,12 +126,34 @@ public class UserController {
     /**
      * 用户登出
      * 设备ID
+     *
      * @param paramMap
      * @return
      */
-    @RequestMapping(value = "/logout", method = { RequestMethod.POST })
+    @RequestMapping(value = "/logout", method = {RequestMethod.POST})
     public Result<?> logout(@RequestBody Map<String, String> paramMap) {
         return userService.userLogout(paramMap);
+    }
+
+    /**
+     * 重置登录密码
+     * 手机号
+     * 新密码
+     * 随机码
+     */
+    @RequestMapping(value = "/resetLoginPwd", method = {RequestMethod.POST})
+    public Result<?> restUserPwd(@RequestBody Map<String, String> paramMap) {
+        Result<JSONObject> result = new Result<>();
+        try {
+            Result<User> userResult = userService.restUserPwd(paramMap);
+            if (Result.CODE_FAILURE == userResult.getCode()) {
+                return userResult;
+            }
+        } catch (Exception e) {
+            log.error("用户登录异常[{}]", paramMap, e);
+            return new Result<JSONObject>(-1, "重置登录密码失败");
+        }
+        return result;
     }
 
 }
