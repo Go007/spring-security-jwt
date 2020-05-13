@@ -71,7 +71,7 @@ public class OauthService {
      *  }
      * </pre>
      */
-    public Result<String> applyToken(@RequestBody Map<String, String> params) {
+    public Result<String> applyToken(Map<String, String> params) {
         Result<String> result = new Result<>();
         try {
             String deviceId = params.get(Constants.PARAM_USER_DEVICEID);

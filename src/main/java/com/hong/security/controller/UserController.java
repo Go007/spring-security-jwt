@@ -8,6 +8,7 @@ import com.hong.security.common.RoleType;
 import com.hong.security.service.UserService;
 import com.hong.security.util.IPUtils;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -35,7 +36,6 @@ public class UserController {
      * @param request
      * @return
      */
-  //  @PreAuthorize("hasAnyAuthority('GUEST','USER')")
     @RequestMapping(value = "/login", method = {RequestMethod.POST})
     @ResponseBody
     public Result<?> login(@RequestBody Map<String, String> paramMap, HttpServletRequest request) {
@@ -55,6 +55,70 @@ public class UserController {
         } catch (Exception e) {
             log.error("用户登录异常[{}]", paramMap, e);
             return new Result<>(-1, "用户登录失败");
+        }
+        return result;
+    }
+
+
+    /**
+     * 注册
+     *
+     * @param paramMap 设备id
+     *                 手机号
+     *                 短信校验码
+     *                 密码
+     * @param request
+     * @return
+     */
+    @RequestMapping(value = "account/register", method = {RequestMethod.POST})
+    public Result<?> register(@RequestBody Map<String, String> paramMap, HttpServletRequest request) {
+        Result<JSONObject> result = new Result<>();
+        try {
+            JSONObject jsonObject = new JSONObject();
+            String accessToken = StringUtils.EMPTY;
+            String userName = StringUtils.EMPTY;
+            String mobile = StringUtils.EMPTY;
+            String userPic = StringUtils.EMPTY;
+            String nickName = StringUtils.EMPTY;
+            String userId = StringUtils.EMPTY;
+            String ipAddress = IPUtils.getClientIP(request);
+            String androidChannel = request.getHeader(Constants.PARAM_ANDROID_CHANNEL);
+            paramMap.put(Constants.PARAM_IP, ipAddress);
+            paramMap.put(Constants.PARAM_USER_ROLES, RoleType.ROLE_USER.roleName());// 普通用户注册
+            paramMap.put(Constants.PARAM_ANDROID_CHANNEL, androidChannel);//增加应用市场渠道
+            Result<User> regResult = userService.userRegister(paramMap);
+            if (Result.CODE_FAILURE == regResult.getCode()) {//出错直接返回
+                return regResult;
+            }
+            User regUser = new User();
+            if (regResult.getData() != null) {
+                regUser = regResult.getData();
+                accessToken = regUser.getToken();
+                userId = String.valueOf(regUser.getId());
+            }
+            if (StringUtils.isNotBlank(regUser.getLoginName())) {
+                userName = regUser.getLoginName();
+            }
+
+            if (StringUtils.isNotBlank(regUser.getMobile())) {
+                mobile = regUser.getMobile();
+            }
+            if (StringUtils.isNotBlank(regUser.getUserPic())) {
+                userPic = regUser.getUserPic();
+            }
+            if (StringUtils.isNotBlank(regUser.getNickName())) {
+                nickName = regUser.getNickName();
+            }
+            jsonObject.put("accessToken", accessToken);
+            jsonObject.put("userName", userName);
+            jsonObject.put("mobile", mobile);
+            jsonObject.put("userPic", userPic);
+            jsonObject.put("nickName", nickName);
+            jsonObject.put("userId", userId);
+            result.setData(jsonObject);
+        } catch (Exception e) {
+            log.error("用户注册异常[{}]", paramMap, e);
+            return new Result<>(-1, "注册用户失败");
         }
         return result;
     }

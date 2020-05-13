@@ -537,4 +537,7 @@ public class Constants {
     public static final String REDIS_KEY_USER_QUERY_CODE = KEY_PREFIX+"queryUserExist.";
 
     public static final String REDIS_KEY_USER_FIND_PWD = KEY_PREFIX+"findUserPwd.";
+
+    /** 值：用户缓存过期时间为一天，单位：秒 **/
+    public static final int EXPIRE_USER_DAY = 10;//24*60*60
 }

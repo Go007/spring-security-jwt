@@ -2,10 +2,7 @@ package com.hong.security.service;
 
 import com.alibaba.fastjson.JSON;
 import com.hong.security.bean.User;
-import com.hong.security.common.Constants;
-import com.hong.security.common.Result;
-import com.hong.security.common.ResultCode;
-import com.hong.security.common.RoleType;
+import com.hong.security.common.*;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -33,6 +30,52 @@ public class UserService {
 
     @Autowired
     private OauthService oauthService;
+
+    /**
+     * 用户注册
+     * 步骤:参数校验--检查注册短信发送次数--检查验证码是否正确(缓存中)--检查用户是否存在--注册--发送短信
+     * <pre>
+     *  {
+     *    userName=18129865237,
+     *    smsCode=34555,
+     *    roles=USER,
+     *    clientIp=183.16.194.73,
+     *    password=%$8908xdf3@#.csd
+     *  }
+     * </pre>
+     */
+    public Result<User> userRegister(Map<String, String> params) {
+        Result<User> result = new Result<>();
+        try {
+            String mobile = params.get(Constants.PARAM_USER_MOBILE);
+            String randCode = params.get(Constants.PARAM_IDENTIFY_CODE);
+            String deviceId = params.get(Constants.PARAM_USER_DEVICEID);
+            // 1、检查随机码是否正确
+            String cacheRandCode = redisService.getStr(Constants.REDIS_KEY_USER_QUERY_CODE + mobile + randCode);
+            if (!StringUtils.equals(randCode, cacheRandCode)) {// code校验通过--修改密码
+                return new Result<>(ResultCode.SYS_USER_QUERY_RAND_EXPIRE.getCode(), ResultCode.SYS_USER_QUERY_RAND_EXPIRE.getMsg());
+            }
+            // 2、检查用户是否已经注册
+            User queryUser = queryUserInfo(mobile);
+            if (queryUser != null) {
+                return new Result<>(ResultCode.SYS_USER_EXIST.getCode(), ResultCode.SYS_USER_EXIST.getMsg());
+            }
+            // 3、密码生成--身份证信息识别--获取ip--插入数据库--缓存用户信息
+            User regUser = saveUserInfo(params, UserSaveType.INSERT);
+            // 4、是否需要发送注册成功短信or推送注册成功信息
+
+            // 5、设置登录态
+            cacheUserLoginStatus(deviceId, regUser);
+            // 6、设置登录token
+            String token = getUserToken(params, regUser);
+            regUser.setToken(token);
+            result.setData(regUser);
+            return result;
+        } catch (Exception e) {
+            log.error("添加用户异常[{}]", params, e);
+            return new Result<>(ResultCode.SYS_ADDUSER_FAIL.getCode(), ResultCode.SYS_ADDUSER_FAIL.getMsg());
+        }
+    }
 
     /**
      * 切换终端登录，踢出设备
@@ -253,5 +296,36 @@ public class UserService {
      */
     private String generateCacheUserKey(String userName) {
         return Constants.REDIS_KEY_USER + userName;
+    }
+
+    private User saveUserInfo(Map<String, String> params, UserSaveType userSaveType) {
+        String mobile = params.get(Constants.PARAM_USER_MOBILE);
+        User regUser = new User(); // setUserInfo(params, userSaveType,UserStatus.ENABLE);
+        int effectNum = 1;// userMapper.insert(regUser);// 用户注册
+        if (effectNum > 0) {
+            // 缓存到redis
+            log.info("用户注册成功[{}]", regUser);
+            String cacheKey = generateCacheUserKey(mobile);
+            redisService.set(cacheKey, regUser, Constants.EXPIRE_USER_DAY);// 缓存注册用户信息
+        }
+        return regUser;
+    }
+
+    /**
+     * 向oauth服务申请用户token
+     */
+    private String getUserToken(Map<String, String> params, User user) {
+        params.put(Constants.PARAM_USER_TOKEN_TYPE, String.valueOf(TokenType.USER.type()));
+        params.put(Constants.PARAM_USER_OAUTHS, user.getRoles());
+        if (user.getId() != null) {
+            params.put(Constants.PARAM_USER_ID, String.valueOf(user.getId()));
+        }
+        params.put(Constants.PARAM_USER_NAME, user.getLoginName());
+        Result<String> result = oauthService.applyToken(params);
+        if (Result.CODE_FAILURE == result.getCode()) {
+            log.info("getUserToken申请token异常[{}]", result);
+        }
+        String token = result.getData();
+        return token;
     }
 }
