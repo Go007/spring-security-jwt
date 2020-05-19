@@ -2,10 +2,7 @@ package com.hong.security.controller;
 
 import com.hong.security.common.Result;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
@@ -21,8 +18,12 @@ public class AccountController {
 
     @PostMapping("/query")
     public Result query(@RequestBody Map<String, Object> paramMap) {
-
         return new Result();
+    }
+
+    @PostMapping("/modify")
+    public void modify(@RequestParam("name") String name) {
+        System.out.println("到达Controller层，after modify:" + name);
     }
 
 }

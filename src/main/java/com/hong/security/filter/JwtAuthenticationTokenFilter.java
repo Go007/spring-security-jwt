@@ -1,10 +1,7 @@
 package com.hong.security.filter;
 
 import com.alibaba.fastjson.JSONObject;
-import com.hong.security.common.Constants;
-import com.hong.security.common.Result;
-import com.hong.security.common.ResultCode;
-import com.hong.security.common.WrappedRequest;
+import com.hong.security.common.*;
 import com.hong.security.config.PropsConfig;
 import com.hong.security.service.OauthService;
 import com.hong.security.service.UserService;
@@ -152,11 +149,15 @@ public class JwtAuthenticationTokenFilter extends OncePerRequestFilter {
             }
         }
 
-        if (requestWrapper == null) {
-            filterChain.doFilter(request, response);
-        } else {
-            filterChain.doFilter(requestWrapper, response);
-        }
+        // @RequestParam参数修改示例
+        ModifyParametersWrapper mParametersWrapper = new ModifyParametersWrapper(request);
+        filterChain.doFilter(mParametersWrapper, response);
+
+//        if (requestWrapper == null) {
+//            filterChain.doFilter(request, response);
+//        } else {
+//            filterChain.doFilter(requestWrapper, response);
+//        }
 
     }
 
